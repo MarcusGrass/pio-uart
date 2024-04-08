@@ -48,7 +48,6 @@
 //! ```
 
 #![no_std]
-#![deny(missing_docs)]
 
 use rp2040_hal::{
     gpio::{Pin, PinId, PullNone, PullUp},
@@ -100,7 +99,7 @@ pub struct PioUart<RXID: PinId, TXID: PinId, PIO: PIOExt, State> {
 /// - `SM`:  The state machine to use.
 /// - `State`: The state of the UART interface, either `pio::Stopped` or `pio::Running`.
 pub struct PioUartRx<PinID: PinId, PIO: PIOExt, SM: StateMachineIndex, State> {
-    rx: pio::Rx<(PIO, SM)>,
+    pub rx: pio::Rx<(PIO, SM)>,
     sm: StateMachine<(PIO, SM), State>,
     // The following fields are use to restore the original state in `free()`
     _rx_pin: Pin<PinID, PIO::PinFunction, PullUp>,
@@ -170,7 +169,7 @@ impl<PinID: PinId, PIO: PIOExt, SM: StateMachineIndex> PioUartRx<PinID, PIO, SM,
     ) {
         // SAFETY: Program can not be uninstalled, because it can not be accessed
         let program = unsafe { token.program.share() };
-        let builder = PIOBuilder::from_program(program);
+        let builder = PIOBuilder::from_installed_program(program);
         let (mut sm, rx, tx) = builder
             .in_pin_base(rx_id)
             .jmp_pin(rx_id)
@@ -252,7 +251,7 @@ impl<PinID: PinId, PIO: PIOExt, SM: StateMachineIndex> PioUartTx<PinID, PIO, SM,
     ) {
         // SAFETY: Program can not be uninstalled, because it can not be accessed
         let program = unsafe { token.program.share() };
-        let builder = PIOBuilder::from_program(program);
+        let builder = PIOBuilder::from_installed_program(program);
         let (mut sm, rx, tx) = builder
             .out_shift_direction(ShiftDirection::Right)
             .autopull(false)
@@ -367,6 +366,10 @@ impl<RXID: PinId, TXID: PinId, PIO: PIOExt> PioUart<RXID, TXID, PIO, pio::Stoppe
 }
 
 impl<PinID: PinId, PIO: PIOExt, SM: StateMachineIndex> PioUartRx<PinID, PIO, SM, pio::Running> {
+    #[inline]
+    pub fn read_one(&mut self) -> Option<u8> {
+        self.rx.read().map(|uz| (uz >> 24) as u8)
+    }
     /// Reads raw data into a buffer.
     ///
     /// # Arguments
