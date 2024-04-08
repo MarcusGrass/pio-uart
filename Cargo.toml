@@ -11,9 +11,13 @@ keywords = ["uart", "pio", "rp2040", "embedded"]
 categories = ["embedded", "no-std"]
 authors = ["Karsten Große"]
 
+[features]
+default = []
+defmt = ["dep:defmt"]
+
 [dependencies]
 cortex-m = "0.7.7"
-defmt = "0.3.5"
+defmt = { version = "0.3.5", optional = true }
 embedded-io = "0.6.1"
 fugit = "0.3.7"
 pio = "0.2.1"

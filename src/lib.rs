@@ -445,7 +445,8 @@ impl<PinID: PinId, PIO: PIOExt, SM: StateMachineIndex> PioUartTx<PinID, PIO, SM,
 }
 
 /// Represents errors that can occur in the PIO UART.
-#[derive(core::fmt::Debug, defmt::Format)]
+#[derive(core::fmt::Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive]
 pub enum PioSerialError {
     /// General IO error
