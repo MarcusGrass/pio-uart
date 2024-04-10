@@ -406,15 +406,16 @@ impl<PinID: PinId, PIO: PIOExt, SM: StateMachineIndex> PioUartRx<PinID, PIO, SM,
 impl<PinID: PinId, PIO: PIOExt, SM: StateMachineIndex> PioUartTx<PinID, PIO, SM, pio::Running> {
     #[inline]
     pub fn blocking_write_byte(&mut self, byte: u8) {
-        loop {
-            while self.tx.is_full() {
-                core::hint::spin_loop();
-            }
-            if self.tx.write(byte as u32) {
-                break;
-            }
+        while self.tx.is_full() {
+            core::hint::spin_loop();
+        }
+        let addr = self.tx.fifo_address().cast_mut();
+        // Safety: Same as `self.tx.write()` but with fewer steps and inlined
+        unsafe {
+            addr.write_volatile(byte as u32);
         }
     }
+
     /// Writes raw data from a buffer.
     ///
     /// # Arguments
