@@ -145,7 +145,7 @@ impl<PinID: PinId, PIO: PIOExt, SM: StateMachineIndex> PioUartRx<PinID, PIO, SM,
         baud: fugit::HertzU32,
         system_freq: fugit::HertzU32,
     ) -> Self {
-        let div = system_freq.to_Hz() as f32 / (8f32 * baud.to_Hz() as f32);
+        let div = system_freq.to_Hz() as f32 / (16f32 * baud.to_Hz() as f32);
         let rx_id = rx_pin.id().num;
 
         let (rx_sm, rx, tx) = Self::build_rx(rx_program, rx_id, rx_sm, div);
@@ -227,7 +227,7 @@ impl<PinID: PinId, PIO: PIOExt, SM: StateMachineIndex> PioUartTx<PinID, PIO, SM,
         baud: fugit::HertzU32,
         system_freq: fugit::HertzU32,
     ) -> Self {
-        let div = system_freq.to_Hz() as f32 / (8f32 * baud.to_Hz() as f32);
+        let div = system_freq.to_Hz() as f32 / (16f32 * baud.to_Hz() as f32);
         let tx_id = tx_pin.id().num;
 
         let (tx_sm, rx, tx) = Self::build_tx(tx_program, tx_id, sm, div);
@@ -364,11 +364,21 @@ impl<RXID: PinId, TXID: PinId, PIO: PIOExt> PioUart<RXID, TXID, PIO, pio::Stoppe
         (pio, rx_pin, tx_pin)
     }
 }
-
+const EXPECT_HEAD: u16 = 0b0101_0000_0000_0000;
+const HEAD_MASK: u16 = 0b1111_0000_0000_0000;
+const EXPECT_TAIL: u16 = 0b0000_0000_0000_0101;
+const TAIL_MASK: u16 = 0b0000_0000_0000_1111;
+const MSG_MASK: u16 = 0b0000_1111_1111_0000;
 impl<PinID: PinId, PIO: PIOExt, SM: StateMachineIndex> PioUartRx<PinID, PIO, SM, pio::Running> {
     #[inline]
     pub fn read_one(&mut self) -> Option<u8> {
-        self.rx.read().map(|uz| (uz >> 24) as u8)
+        self.rx.read().and_then(|uz| {
+            let byte = (uz >> 16) as u16;
+            if byte & TAIL_MASK == EXPECT_TAIL && byte & HEAD_MASK == EXPECT_HEAD {
+                return Some(((byte & MSG_MASK) >> 4) as u8);
+            }
+            None
+        })
     }
     /// Reads raw data into a buffer.
     ///
@@ -406,13 +416,15 @@ impl<PinID: PinId, PIO: PIOExt, SM: StateMachineIndex> PioUartRx<PinID, PIO, SM,
 impl<PinID: PinId, PIO: PIOExt, SM: StateMachineIndex> PioUartTx<PinID, PIO, SM, pio::Running> {
     #[inline]
     pub fn blocking_write_byte(&mut self, byte: u8) {
+        const MSG_BASE: u16 = EXPECT_HEAD | EXPECT_TAIL;
+        let msg = ((byte as u16) << 4) | MSG_BASE;
         while self.tx.is_full() {
             core::hint::spin_loop();
         }
         let addr = self.tx.fifo_address().cast_mut();
         // Safety: Same as `self.tx.write()` but with fewer steps and inlined
         unsafe {
-            addr.write_volatile(byte as u32);
+            addr.write_volatile(msg as u32);
         }
     }
 
