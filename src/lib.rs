@@ -49,6 +49,7 @@
 
 #![no_std]
 
+use ::pio::pio_file;
 use rp2040_hal::{
     gpio::{Pin, PinId, PullNone, PullUp},
     pio::{
@@ -61,17 +62,19 @@ use rp2040_hal::{
 pub fn install_rx_program<PIO: PIOExt>(
     pio: &mut pio::PIO<PIO>,
 ) -> Result<RxProgram<PIO>, InstallError> {
-    let program_with_defines = pio_proc::pio_file!("src/uart_rx.pio", select_program("uart_rx"));
-    let program = program_with_defines.program;
-    pio.install(&program).map(|program| RxProgram { program })
+    let program_with_defines = ::pio::pio_file!("src/uart_rx.pio", select_program("uart_rx"));
+    let program = program_with_defines;
+    pio.install(&program.program)
+        .map(|program| RxProgram { program })
 }
 /// Install the UART Tx program in a PIO instance
 pub fn install_tx_program<PIO: PIOExt>(
     pio: &mut pio::PIO<PIO>,
 ) -> Result<TxProgram<PIO>, InstallError> {
-    let program_with_defines = pio_proc::pio_file!("src/uart_tx.pio",);
-    let program = program_with_defines.program;
-    pio.install(&program).map(|program| TxProgram { program })
+    let program_with_defines = pio_file!("src/uart_tx.pio",);
+    let program = program_with_defines;
+    pio.install(&program.program)
+        .map(|program| TxProgram { program })
 }
 
 /// Represents a UART interface using the RP2040's PIO hardware.
